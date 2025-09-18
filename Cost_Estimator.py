@@ -28,7 +28,7 @@ storage_tb = st.sidebar.number_input("Average Storage (TB)", min_value=0.0, valu
 storage_growth = st.sidebar.slider("Monthly Storage Growth (%)", 0, 20, 10)
 
 data_transfer_tb = st.sidebar.number_input("Data Transfer Out (TB)", min_value=0.0, value=2.0)
-transfer_growth = st.sidebar.slider("Monthly Data Transfer Growth (%)", 0, 20, 10)
+transfer_growth = st.sidebar.slider("Monthly Data Transfer Growth (%)", 0, 20, 7)
 
 discount_pct = st.sidebar.slider("Base Discount (%)", 0, 50, 0)
 
