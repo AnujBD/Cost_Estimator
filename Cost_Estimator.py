@@ -132,13 +132,32 @@ total_savings = total_annual_cost - total_optimized_annual
 savings_pct = (total_savings / total_annual_cost) * 100 if total_annual_cost > 0 else 0
 
 # --- Results Display ---
-col1, col2 = st.columns([2, 1])
+st.markdown(
+    f"""
+    <div style='
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 15px;
+        white-space: nowrap;
+        padding: 15px 20px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background-color: #f9fafb;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        width: fit-content;
+        margin: 20px auto;
+    '>
+        <h2 style='margin: 0; font-weight: 600; color: #333;'>💰 Total Annual Cost:</h2>
+        <h2 style='margin: 0; font-weight: 700; color: #2E86C1;'>${total_annual_cost:,.2f}</h2>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-with col1:
-    st.header("💰 Total Annual Cost:")
 
-with col2:
-    st.header(f"${total_annual_cost:,.2f}")
+
+
 
 
 if use_gen2:
@@ -175,7 +194,7 @@ fig_pie.update_traces(
 )
 st.plotly_chart(fig_pie, use_container_width=True)
 
-# --- Monthly Stacked Bar Chart ---
+# --- Monthly Stacked Bar Chart with Total Labels ---
 monthly_df = pd.DataFrame({
     "Month": months,
     "Compute": compute_costs,
@@ -183,6 +202,10 @@ monthly_df = pd.DataFrame({
     "Data Transfer": transfer_costs
 })
 
+# Calculate total for each month
+monthly_df["Total"] = monthly_df[["Compute", "Storage", "Data Transfer"]].sum(axis=1)
+
+# Create stacked bar chart
 fig_bar = px.bar(
     monthly_df,
     x="Month",
@@ -191,8 +214,34 @@ fig_bar = px.bar(
     labels={"value": "Cost ($)", "variable": "Category"},
     hover_data={"value": ":,.2f"}
 )
+
+# Update bar hovertemplate
 fig_bar.update_traces(hovertemplate='%{x}: $%{value:,.2f}')
+
+# --- Add total cost as text above each stacked bar ---
+# Calculate the top position of each bar
+for i, month in enumerate(monthly_df["Month"]):
+    total = monthly_df.loc[i, "Total"]
+    fig_bar.add_annotation(
+        x=month,
+        y=total,
+        text=f"${total:,.0f}",  # formatted total value
+        showarrow=False,
+        font=dict(size=12, color="#333", family="Arial"),
+        yshift=8  # position slightly above the bar
+    )
+
+# Improve overall layout
+fig_bar.update_layout(
+    barmode='stack',
+    yaxis_title="Cost ($)",
+    xaxis_title="Month",
+    legend_title_text="Category",
+    margin=dict(t=40, b=40),
+)
+
 st.plotly_chart(fig_bar, use_container_width=True)
+
 
 # --- Monthly Total Cost Line Chart ---
 fig_line = px.line(
@@ -271,13 +320,14 @@ st.markdown(
 
 st.markdown("<div class='optimization-box'><ul>" + "".join([f"<li>{item}</li>" for item in optimizations]) + "</ul></div>", unsafe_allow_html=True)
 
-# --- Savings Bar Chart ---
+# --- Cost Savings by Category Chart with Totals ---
 savings_df = pd.DataFrame({
     "Category": ["Compute", "Storage", "Data Transfer"],
     "Current Cost": [sum(compute_costs), sum(storage_costs), sum(transfer_costs)],
     "Optimized Cost": [sum(optimized_compute_costs), sum(optimized_storage_costs), sum(optimized_transfer_costs)]
 })
 
+# Create grouped bar chart
 fig_savings = px.bar(
     savings_df,
     x="Category",
@@ -287,5 +337,23 @@ fig_savings = px.bar(
     labels={"value": "Cost ($)", "variable": "Status"},
     hover_data={"value": ":,.2f"}
 )
+
+# Update hovertemplate
 fig_savings.update_traces(hovertemplate='%{x}: $%{value:,.2f}')
+
+for trace in fig_savings.data:
+    trace.text = [f"${v:,.0f}" for v in trace.y]
+    trace.textposition = "inside"
+
+
+
+# Improve layout
+fig_savings.update_layout(
+    yaxis_title="Cost ($)",
+    xaxis_title="Category",
+    legend_title_text="Status",
+    margin=dict(t=40, b=40),
+)
+
+# Display the chart
 st.plotly_chart(fig_savings, use_container_width=True)
