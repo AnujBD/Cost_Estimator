@@ -15,38 +15,33 @@ st.sidebar.header("Enter Your Snowflake Usage Details")
 use_gen2 = st.sidebar.checkbox("Enable Gen 2 Warehouse Pricing", value=False)
 
 # Compute Inputs
-num_vws = st.sidebar.number_input("Number of Virtual Warehouses", min_value=1, value=2)
+num_vws = st.sidebar.number_input("Number of Virtual Warehouses", min_value=1, value=1)
 vw_size = st.sidebar.selectbox("Warehouse Size", ["X-Small", "Small", "Medium", "Large", "X-Large"])
 hours_per_day = st.sidebar.number_input("Average Hours per Day", min_value=1, value=12)
 active_days_per_month = st.sidebar.slider("Active Days per Month", 1, 31, 22)
 
 # Smooth Growth Setting for Compute
-compute_growth = st.sidebar.slider("Monthly Compute Growth (%)", 0, 20, 0)
+compute_growth = st.sidebar.slider("Monthly Compute Growth (%)", 0, 20, 10)
 
 # Storage Inputs
 storage_tb = st.sidebar.number_input("Average Storage (TB)", min_value=0.0, value=5.0)
-storage_growth = st.sidebar.slider("Monthly Storage Growth (%)", 0, 20, 2)
+storage_growth = st.sidebar.slider("Monthly Storage Growth (%)", 0, 20, 10)
 
-# Data Transfer Inputs
-data_transfer_tb = st.sidebar.number_input("Data Transfer Out (TB)", min_value=0.0, value=1.0)
-transfer_growth = st.sidebar.slider("Monthly Data Transfer Growth (%)", 0, 20, 3)
+data_transfer_tb = st.sidebar.number_input("Data Transfer Out (TB)", min_value=0.0, value=2.0)
+transfer_growth = st.sidebar.slider("Monthly Data Transfer Growth (%)", 0, 20, 10)
 
-# Discount
 discount_pct = st.sidebar.slider("Base Discount (%)", 0, 50, 0)
 
-# Savings Optimization
 st.sidebar.header("Potential Savings Options")
-pause_hours_per_day = st.sidebar.number_input("Pause Hours Per Day (Compute Savings)", min_value=0, max_value=24, value=0)
+pause_hours_per_day = st.sidebar.number_input("Pause Hours Per Day (Compute Savings)", min_value=0, max_value=24, value=1)
 reduce_vw_size = st.sidebar.selectbox("Optional Reduced Warehouse Size", ["Same", "X-Small", "Small", "Medium", "Large"])
-additional_discount = st.sidebar.slider("Extra Discount (%) if optimizing usage", 0, 50, 0)
+additional_discount = st.sidebar.slider("Extra Discount (%) if optimizing usage", 0, 50, 5)
 
-# --- Pricing Constants ---
-CREDIT_COST = 2.0  # $ per credit
-STORAGE_COST_PER_TB = 40  # $ per TB/month
-DATA_TRANSFER_COST_PER_TB = 90  # $ per TB/month
+CREDIT_COST = 2.0  
+STORAGE_COST_PER_TB = 40  
+DATA_TRANSFER_COST_PER_TB = 90  
 size_credit_mapping = {"X-Small": 1, "Small": 2, "Medium": 4, "Large": 8, "X-Large": 16}
 
-# --- Helper function for Gen 2 scaling discount ---
 def gen2_scaling_discount(num_warehouses):
     """Applies up to 20% discount for scaling Gen 2 warehouses."""
     additional_discount = min((num_warehouses - 1) * 0.05, 0.20) if num_warehouses > 1 else 0
