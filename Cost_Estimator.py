@@ -170,8 +170,17 @@ cost_breakdown = pd.DataFrame({
 cost_breakdown_display = cost_breakdown.copy()
 cost_breakdown_display["Cost"] = cost_breakdown_display["Cost"].apply(lambda x: f"${x:,.0f}")
 
-# Display as dataframe without index
-st.dataframe(cost_breakdown_display, hide_index=True)
+# Apply bold styling to headers
+styled_table = cost_breakdown_display.style.set_table_styles(
+    [
+        {'selector': 'th', 'props': [('font-weight', 'bold'), ('font-size', '14px')]},  # Bold headers
+        {'selector': 'td', 'props': [('font-size', '14px')]}  # Normal cell styling
+    ]
+)
+
+# Display styled dataframe
+st.dataframe(styled_table, hide_index=True)
+
 
 
 
@@ -220,7 +229,7 @@ for i, month in enumerate(monthly_df["Month"]):
     fig_bar.add_annotation(
         x=month,
         y=total,
-        text=f"${total:,.0f}",  # formatted total value
+        text=f"<b>${total:,.0f}</b>",  # formatted total value
         showarrow=False,
         font=dict(size=12, color="#333", family="Arial"),
         yshift=8  # position slightly above the bar
@@ -352,3 +361,27 @@ fig_savings.update_layout(
 
 # Display the chart
 st.plotly_chart(fig_savings, use_container_width=True)
+
+
+optimized_monthly = (
+    np.array(optimized_compute_costs) + 
+    np.array(optimized_storage_costs) + 
+    np.array(optimized_transfer_costs)
+)
+
+savings_trend_df = pd.DataFrame({
+    "Month": months,
+    "Current Total": total_costs,
+    "Optimized Total": optimized_monthly
+})
+
+fig_savings_trend = px.line(
+    savings_trend_df,
+    x="Month",
+    y=["Current Total", "Optimized Total"],
+    title="Monthly Cost Before and After Optimization",
+    labels={"value": "Cost ($)", "variable": "Status"}
+)
+fig_savings_trend.update_traces(mode='lines+markers')
+st.plotly_chart(fig_savings_trend, use_container_width=True)
+
