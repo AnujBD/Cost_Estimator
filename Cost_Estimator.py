@@ -385,3 +385,50 @@ fig_savings_trend = px.line(
 fig_savings_trend.update_traces(mode='lines+markers')
 st.plotly_chart(fig_savings_trend, use_container_width=True)
 
+
+
+import plotly.graph_objects as go
+
+# --- Combined Stacked Bar + Line Chart ---
+fig_combined = go.Figure()
+
+# Add stacked bars for each cost category
+categories = ["Compute", "Storage", "Data Transfer"]
+colors = ["#4e79a7", "#f28e2b", "#e15759"]  # Optional custom colors
+
+for category, color in zip(categories, colors):
+    fig_combined.add_trace(go.Bar(
+        x=monthly_df["Month"],
+        y=monthly_df[category],
+        name=category,
+        marker_color=color,
+        hovertemplate=f"{category}: $%{{y:,.2f}}<extra></extra>"
+    ))
+
+# Add total cost line on top of stacked bars
+fig_combined.add_trace(go.Scatter(
+    x=monthly_df["Month"],
+    y=monthly_df["Total"],
+    name="Total Cost",
+    mode="lines+markers+text",
+    line=dict(color="black", width=2),
+    text=[f"${v:,.0f}" for v in monthly_df["Total"]],  # Show total cost labels
+    textposition="top center",
+    hovertemplate="Total: $%{y:,.2f}<extra></extra>"
+))
+
+# Update layout
+fig_combined.update_layout(
+    title="Monthly Cost Breakdown & Total Trend",
+    barmode="stack",
+    yaxis_title="Cost ($)",
+    xaxis_title="Month",
+    legend_title_text="Category",
+    hovermode="x unified",
+    margin=dict(t=40, b=40),
+    plot_bgcolor="white",
+    paper_bgcolor="white"
+)
+
+# Show chart
+st.plotly_chart(fig_combined, use_container_width=True)
