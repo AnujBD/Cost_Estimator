@@ -2,77 +2,366 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-# --- Page Config ---
-st.set_page_config(page_title="❄️ Snowflake Cost Estimator", layout="wide")
-st.title("❄️ Snowflake Cost Estimator")
-st.markdown("Estimate your **annual Snowflake costs** and explore **potential savings**, including **Gen 2 Warehouse benefits**.")
+# === PROFESSIONAL STYLING ===
+st.set_page_config(
+    page_title="Snowflake Cost Estimator",
+    page_icon="❄️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# --- Sidebar Inputs ---
-st.sidebar.header("Enter Your Snowflake Usage Details")
+# Custom CSS for professional styling
+st.markdown("""
+<style>
+    /* Import Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Global Styling */
+    .main {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* Header Styling */
+    .main-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        color: white;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .main-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    .main-subtitle {
+        font-size: 1.2rem;
+        font-weight: 300;
+        opacity: 0.9;
+    }
+    
+    /* Card Styling */
+    .metric-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        border: 1px solid #e5e7eb;
+        margin: 1rem 0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    
+    .metric-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metric-label {
+        font-size: 0.9rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+    }
+    
+    .savings-card {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        margin: 1rem 0;
+    }
+    
+    .savings-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .savings-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Section Headers */
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #1f2937;
+        margin: 2rem 0 1rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 3px solid #667eea;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Optimization Summary */
+    .optimization-summary {
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+    }
+    
+    .optimization-item {
+        background: white;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    /* Sidebar Styling */
+    .sidebar .sidebar-content {
+        background: #f8fafc;
+    }
+    
+    /* Status Indicators */
+    .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    
+    .status-active { background-color: #10b981; }
+    .status-warning { background-color: #f59e0b; }
+    .status-info { background-color: #3b82f6; }
+    
+    /* Progress Bars */
+    .progress-container {
+        background-color: #e5e7eb;
+        border-radius: 10px;
+        height: 8px;
+        margin: 0.5rem 0;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        border-radius: 10px;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        transition: width 0.3s ease;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# Gen 2 Warehouse Toggle
-use_gen2 = st.sidebar.checkbox("Enable Gen 2 Warehouse Pricing", value=False)
+# === HEADER SECTION ===
+st.markdown("""
+<div class="main-header">
+    <div class="main-title">❄️ Snowflake Cost Estimator</div>
+    <div class="main-subtitle">Advanced Cost Estimation & Optimization Analytics</div>
+</div>
+""", unsafe_allow_html=True)
 
-# Compute Inputs
-num_vws = st.sidebar.number_input("Number of Virtual Warehouses", min_value=1, value=1)
-vw_size = st.sidebar.selectbox("Warehouse Size", ["X-Small", "Small", "Medium", "Large", "X-Large"])
-hours_per_day = st.sidebar.number_input("Average Hours per Day", min_value=1, value=12)
-active_days_per_month = st.sidebar.slider("Active Days per Month", 1, 31, 22)
+# === SIDEBAR CONFIGURATION ===
+with st.sidebar:
+    st.markdown("### 🎛️ Configuration Panel")
+    
+    # Quick Setup Templates
+    st.markdown("#### 📋 Quick Setup Templates")
+    template = st.selectbox("Choose a template:", [
+        "Custom Configuration",
+        "Small Business",
+        "Mid-Market Enterprise", 
+        "Large Enterprise",
+        "Data Lake Workload",
+        "Analytics Heavy"
+    ])
+    
+    # Apply template defaults
+    if template == "Small Business":
+        default_vws, default_size, default_hours, default_days = 1, "Small", 8, 20
+        default_storage, default_transfer = 2.0, 0.5
+    elif template == "Mid-Market Enterprise":
+        default_vws, default_size, default_hours, default_days = 3, "Medium", 12, 25
+        default_storage, default_transfer = 10.0, 2.0
+    elif template == "Large Enterprise":
+        default_vws, default_size, default_hours, default_days = 8, "Large", 16, 30
+        default_storage, default_transfer = 50.0, 10.0
+    elif template == "Data Lake Workload":
+        default_vws, default_size, default_hours, default_days = 2, "X-Large", 20, 28
+        default_storage, default_transfer = 100.0, 5.0
+    elif template == "Analytics Heavy":
+        default_vws, default_size, default_hours, default_days = 5, "Large", 14, 26
+        default_storage, default_transfer = 25.0, 8.0
+    else:
+        default_vws, default_size, default_hours, default_days = 1, "X-Small", 12, 22
+        default_storage, default_transfer = 5.0, 2.0
+    
+    st.markdown("---")
+    
+    # Compute Configuration
+    st.markdown("#### 💻 Compute Configuration")
+    
+    # Gen 2 Warehouse with enhanced description
+    use_gen2 = st.checkbox(
+        "🚀 Enable Gen 2 Warehouse Pricing",
+        value=False,
+        help="Gen 2 provides 30% better price-performance with automatic scaling"
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        num_vws = st.number_input(
+            "Virtual Warehouses",
+            min_value=1, max_value=20,
+            value=default_vws,
+            help="Number of concurrent warehouses"
+        )
+    with col2:
+        vw_size = st.selectbox(
+            "Warehouse Size",
+            ["X-Small", "Small", "Medium", "Large", "X-Large"],
+            index=["X-Small", "Small", "Medium", "Large", "X-Large"].index(default_size)
+        )
+    
+    hours_per_day = st.slider(
+        "Average Hours per Day",
+        1, 24, default_hours,
+        help="Daily warehouse runtime"
+    )
+    
+    active_days_per_month = st.slider(
+        "Active Days per Month",
+        1, 31, default_days,
+        help="Business days warehouse is active"
+    )
+    
+    compute_growth = st.slider(
+        "Monthly Compute Growth (%)",
+        0, 50, 10,
+        help="Expected monthly growth in compute usage"
+    )
+    
+    st.markdown("---")
+    
+    # Storage & Transfer Configuration
+    st.markdown("#### 💾 Storage & Transfer Configuration")
+    
+    storage_tb = st.number_input(
+        "Average Storage (TB)",
+        min_value=0.0, max_value=1000.0,
+        value=default_storage, step=0.5,
+        help="Total data storage requirements"
+    )
+    
+    storage_growth = st.slider(
+        "Monthly Storage Growth (%)",
+        0, 30, 10,
+        help="Expected monthly data growth"
+    )
+    
+    data_transfer_tb = st.number_input(
+        "Data Transfer Out (TB)",
+        min_value=0.0, max_value=100.0,
+        value=default_transfer, step=0.1,
+        help="Monthly outbound data transfer"
+    )
+    
+    transfer_growth = st.slider(
+        "Monthly Transfer Growth (%)",
+        0, 25, 7,
+        help="Expected growth in data transfer"
+    )
+    
+    st.markdown("---")
+    
+    # Pricing & Discounts
+    st.markdown("#### 💰 Pricing & Discounts")
+    
+    discount_pct = st.slider(
+        "Base Discount (%)",
+        0, 60, 0,
+        help="Existing enterprise discount"
+    )
+    
+    st.markdown("---")
+    
+    # Optimization Settings
+    st.markdown("#### ⚡ Optimization Settings")
+    
+    pause_hours_per_day = st.number_input(
+        "Auto-Pause Hours Per Day",
+        min_value=0, max_value=12,
+        value=1,
+        help="Hours of automatic warehouse suspension"
+    )
+    
+    reduce_vw_size = st.selectbox(
+        "Optimize Warehouse Size",
+        ["No Change", "X-Small", "Small", "Medium", "Large"],
+        help="Consider smaller warehouses for cost optimization"
+    )
+    
+    additional_discount = st.slider(
+        "Additional Optimization Discount (%)",
+        0, 25, 5,
+        help="Extra discount from usage optimization"
+    )
 
-# Smooth Growth Setting for Compute
-compute_growth = st.sidebar.slider("Monthly Compute Growth (%)", 0, 20, 10)
-
-# Storage Inputs
-storage_tb = st.sidebar.number_input("Average Storage (TB)", min_value=0.0, value=5.0)
-storage_growth = st.sidebar.slider("Monthly Storage Growth (%)", 0, 20, 10)
-
-data_transfer_tb = st.sidebar.number_input("Data Transfer Out (TB)", min_value=0.0, value=2.0)
-transfer_growth = st.sidebar.slider("Monthly Data Transfer Growth (%)", 0, 20, 7)
-
-discount_pct = st.sidebar.slider("Base Discount (%)", 0, 50, 0)
-
-st.sidebar.header("Potential Savings Options")
-pause_hours_per_day = st.sidebar.number_input("Pause Hours Per Day (Compute Savings)", min_value=0, max_value=24, value=1)
-reduce_vw_size = st.sidebar.selectbox("Optional Reduced Warehouse Size", ["Same", "X-Small", "Small", "Medium", "Large"])
-additional_discount = st.sidebar.slider("Extra Discount (%) if optimizing usage", 0, 50, 5)
-
-CREDIT_COST = 2.0  
-STORAGE_COST_PER_TB = 40  
-DATA_TRANSFER_COST_PER_TB = 90  
+# === CALCULATIONS ===
+CREDIT_COST = 2.0
+STORAGE_COST_PER_TB = 40
+DATA_TRANSFER_COST_PER_TB = 90
 size_credit_mapping = {"X-Small": 1, "Small": 2, "Medium": 4, "Large": 8, "X-Large": 16}
 
 def gen2_scaling_discount(num_warehouses):
-    """Applies up to 20% discount for scaling Gen 2 warehouses."""
-    additional_discount = min((num_warehouses - 1) * 0.05, 0.20) if num_warehouses > 1 else 0
-    return 1 - additional_discount
+    """Enhanced Gen 2 scaling with progressive discounts"""
+    if num_warehouses <= 1:
+        return 1.0
+    elif num_warehouses <= 3:
+        return 0.95  # 5% discount
+    elif num_warehouses <= 6:
+        return 0.90  # 10% discount
+    else:
+        return 0.85  # 15% discount for large deployments
 
-# --- Monthly Computation ---
+# Monthly calculations
 months = pd.date_range(start="2024-01-01", periods=12, freq='ME').strftime("%b")
-
 compute_costs, storage_costs, transfer_costs = [], [], []
 storage_current = storage_tb
 transfer_current = data_transfer_tb
 
 for month in range(12):
+    # Base compute calculation
     base_credits = num_vws * size_credit_mapping[vw_size] * hours_per_day * active_days_per_month
-
-    # Adjust compute cost for Gen 2 if enabled
+    
+    # Gen 2 optimizations
     if use_gen2:
-        # 30% more efficient credits
-        base_credits *= 0.70
-        # Scaling efficiency for multiple warehouses
+        base_credits *= 0.70  # 30% efficiency
         base_credits *= gen2_scaling_discount(num_vws)
-
+    
     monthly_compute = base_credits * CREDIT_COST * (1 + (month * compute_growth / 100))
     compute_costs.append(monthly_compute)
-
-    # Storage growth
+    
+    # Storage with compound growth
     monthly_storage = storage_current * STORAGE_COST_PER_TB
     storage_costs.append(monthly_storage)
     storage_current *= (1 + storage_growth / 100)
-
-    # Data transfer growth
+    
+    # Transfer with compound growth
     monthly_transfer = transfer_current * DATA_TRANSFER_COST_PER_TB
     transfer_costs.append(monthly_transfer)
     transfer_current *= (1 + transfer_growth / 100)
@@ -85,9 +374,8 @@ transfer_costs = [t * (1 - discount_pct / 100) for t in transfer_costs]
 total_costs = np.array(compute_costs) + np.array(storage_costs) + np.array(transfer_costs)
 total_annual_cost = total_costs.sum()
 
-# --- Savings Optimization ---
-optimized_size_credit = size_credit_mapping[vw_size] if reduce_vw_size == "Same" else size_credit_mapping[reduce_vw_size]
-
+# Optimization calculations
+optimized_size_credit = size_credit_mapping[vw_size] if reduce_vw_size == "No Change" else size_credit_mapping[reduce_vw_size]
 optimized_compute_costs = []
 storage_current_opt = storage_tb
 transfer_current_opt = data_transfer_tb
@@ -95,22 +383,20 @@ transfer_current_opt = data_transfer_tb
 for month in range(12):
     effective_hours = max(hours_per_day - pause_hours_per_day, 0)
     base_credits_opt = num_vws * optimized_size_credit * effective_hours * active_days_per_month
-
+    
     if use_gen2:
-        # Gen 2 adjustments
-        base_credits_opt *= 0.70  # 30% more efficient
+        base_credits_opt *= 0.70
         base_credits_opt *= gen2_scaling_discount(num_vws)
-        # Additional 10% efficiency for paused hours
         if pause_hours_per_day > 0:
-            base_credits_opt *= 0.90
-
+            base_credits_opt *= 0.90  # Additional pause efficiency
+    
     monthly_compute_opt = base_credits_opt * CREDIT_COST * (1 + (month * compute_growth / 100))
     optimized_compute_costs.append(monthly_compute_opt)
-
+    
     storage_current_opt *= (1 + storage_growth / 100)
     transfer_current_opt *= (1 + transfer_growth / 100)
 
-# Apply combined discount for optimized costs
+# Apply combined discount
 total_discount_opt = discount_pct + additional_discount
 optimized_compute_costs = [c * (1 - total_discount_opt / 100) for c in optimized_compute_costs]
 optimized_storage_costs = [s * (1 - total_discount_opt / 100) for s in storage_costs]
@@ -122,313 +408,320 @@ total_optimized_costs = (
     np.array(optimized_transfer_costs)
 )
 total_optimized_annual = total_optimized_costs.sum()
-
 total_savings = total_annual_cost - total_optimized_annual
 savings_pct = (total_savings / total_annual_cost) * 100 if total_annual_cost > 0 else 0
 
-# --- Results Display ---
-st.markdown(
-    f"""
-    <div style='
-        display: flex;
-        flex-wrap: nowrap;
-        align-items: center;
-        gap: 15px;
-        white-space: nowrap;
-        padding: 15px 20px;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        background-color: #f9fafb;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-        width: fit-content;
-        margin: 20px auto;
-    '>
-        <h2 style='margin: 0; font-weight: 600; color: #333;'>💰 Total Annual Cost:</h2>
-        <h2 style='margin: 0; font-weight: 700; color: #2E86C1;'>${total_annual_cost:,.2f}</h2>
+# === MAIN DASHBOARD ===
+
+# Key Metrics Row
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value">${total_annual_cost:,.0f}</div>
+        <div class="metric-label">📊 Annual Cost</div>
     </div>
-    """,
-    unsafe_allow_html=True
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value">${total_annual_cost/12:,.0f}</div>
+        <div class="metric-label">📅 Monthly Average</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown(f"""
+    <div class="savings-card">
+        <div class="savings-value">${total_savings:,.0f}</div>
+        <div class="savings-label">💰 Potential Savings</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    roi_indicator = "🟢" if savings_pct > 20 else "🟡" if savings_pct > 10 else "🔴"
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-value">{roi_indicator} {savings_pct:.1f}%</div>
+        <div class="metric-label">📈 Savings Percentage</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Configuration Summary
+st.markdown('<div class="section-header">🎯 Current Configuration</div>', unsafe_allow_html=True)
+
+config_col1, config_col2, config_col3 = st.columns(3)
+
+with config_col1:
+    st.markdown(f"""
+    **Compute Setup:**
+    - {num_vws} × {vw_size} Warehouses
+    - {hours_per_day}h/day × {active_days_per_month} days/month
+    - {'✅ Gen 2 Enabled' if use_gen2 else '❌ Gen 1 Standard'}
+    """)
+
+with config_col2:
+    st.markdown(f"""
+    **Storage & Transfer:**
+    - {storage_tb:.1f} TB Storage
+    - {data_transfer_tb:.1f} TB/month Transfer
+    - {storage_growth}% Storage Growth
+    """)
+
+with config_col3:
+    st.markdown(f"""
+    **Discounts Applied:**
+    - {discount_pct}% Base Discount
+    - {additional_discount}% Optimization Discount
+    - Template: {template}
+    """)
+
+# === ENHANCED VISUALIZATIONS ===
+
+st.markdown('<div class="section-header">📊 Cost Analysis Dashboard</div>', unsafe_allow_html=True)
+
+# Enhanced Cost Breakdown with Donut Chart
+fig_donut = go.Figure(data=[go.Pie(
+    labels=['Compute', 'Storage', 'Data Transfer'],
+    values=[sum(compute_costs), sum(storage_costs), sum(transfer_costs)],
+    hole=0.6,
+    marker_colors=['#667eea', '#764ba2', '#f093fb'],
+    textinfo='label+percent',
+    textfont_size=12,
+    hovertemplate='<b>%{label}</b><br>Cost: $%{value:,.0f}<br>Percentage: %{percent}<extra></extra>'
+)])
+
+fig_donut.update_layout(
+    title={'text': "Annual Cost Distribution", 'x': 0.5, 'xanchor': 'center'},
+    annotations=[dict(text=f'Total<br>${total_annual_cost:,.0f}', x=0.5, y=0.5, font_size=16, showarrow=False)],
+    showlegend=True,
+    height=400,
+    font=dict(family="Inter, sans-serif")
 )
 
-
-
-
-
-
-if use_gen2:
-    st.success("Gen 2 Warehouse pricing applied: **30% credit efficiency**, scaling discounts, and pause optimization.")
-
-# --- Cost Breakdown Table ---
-st.subheader("Cost Breakdown")
-
-cost_breakdown = pd.DataFrame({
-    "Category": ["Compute", "Storage", "Data Transfer"],
-    "Cost": [sum(compute_costs), sum(storage_costs), sum(transfer_costs)]
-})
-
-# Format the cost values
-cost_breakdown_display = cost_breakdown.copy()
-cost_breakdown_display["Cost"] = cost_breakdown_display["Cost"].apply(lambda x: f"${x:,.0f}")
-
-# Apply bold styling to headers
-styled_table = cost_breakdown_display.style.set_table_styles(
-    [
-        {'selector': 'th', 'props': [('font-weight', 'bold'), ('font-size', '14px')]},  # Bold headers
-        {'selector': 'td', 'props': [('font-size', '14px')]}  # Normal cell styling
-    ]
-)
-
-# Display styled dataframe
-st.dataframe(styled_table, hide_index=True)
-
-
-
-
-# --- Pie Chart ---
-fig_pie = px.pie(
-    cost_breakdown,
-    names='Category',
-    values='Cost',
-    title='Cost Distribution',
-    hover_data={'Cost': ':.2f'}
-)
-fig_pie.update_traces(
-    hovertemplate='%{label}: $%{value:,.2f} <br>(%{percent})',
-    textinfo='percent+label'
-)
-st.plotly_chart(fig_pie, use_container_width=True)
-
-# --- Monthly Stacked Bar Chart with Total Labels ---
+# Monthly trend with dual axis
+# Monthly trend with dual axis
 monthly_df = pd.DataFrame({
     "Month": months,
     "Compute": compute_costs,
     "Storage": storage_costs,
-    "Data Transfer": transfer_costs
+    "Data Transfer": transfer_costs,
+    "Total": total_costs
 })
 
-# Calculate total for each month
-monthly_df["Total"] = monthly_df[["Compute", "Storage", "Data Transfer"]].sum(axis=1)
+# Use a single y-axis (no secondary_y)
+fig_trend = make_subplots()
 
-# Create stacked bar chart
-fig_bar = px.bar(
-    monthly_df,
-    x="Month",
-    y=["Compute", "Storage", "Data Transfer"],
-    title="Monthly Cost Breakdown",
-    labels={"value": "Cost ($)", "variable": "Category"},
-    hover_data={"value": ":,.2f"}
+# Compute (base)
+fig_trend.add_trace(
+    go.Scatter(x=months, y=compute_costs, fill='tozeroy', name='Compute',
+               line=dict(color='#667eea'), fillcolor='rgba(102,126,234,0.35)'),
 )
 
-# Update bar hovertemplate
-fig_bar.update_traces(hovertemplate='%{x}: $%{value:,.2f}')
 
-# --- Add total cost as text above each stacked bar ---
-# Calculate the top position of each bar
-for i, month in enumerate(monthly_df["Month"]):
-    total = monthly_df.loc[i, "Total"]
-    fig_bar.add_annotation(
-        x=month,
-        y=total,
-        text=f"<b>${total:,.0f}</b>",  # formatted total value
-        showarrow=False,
-        font=dict(size=12, color="#333", family="Arial"),
-        yshift=8  # position slightly above the bar
-    )
+fig_trend.add_trace(
+    go.Scatter(x=months, y=np.array(storage_costs),
+               fill='tonexty', name='Storage',
+               line=dict(color='#764ba2'), fillcolor='rgba(118,75,162,0.35)'),
+)
 
-# Improve overall layout
-fig_bar.update_layout(
-    barmode='stack',
-    yaxis_title="Cost ($)",
+
+fig_trend.add_trace(
+    go.Scatter(x=months, y=np.array(transfer_costs),
+               fill='tonexty', name='Data Transfer',
+               line=dict(color='#f093fb'), fillcolor='rgba(240,147,251,0.35)'),
+)
+
+# Total cost line ON THE SAME AXIS (so scales match)
+fig_trend.add_trace(
+    go.Scatter(x=months, y=total_costs, mode='lines+markers+text', name='Total Cost',
+               line=dict(color='#1f2937', width=3),
+               marker=dict(size=7),
+               text=[f"${v:,.0f}" for v in total_costs],
+               textposition="top center",
+               hovertemplate='<b>Total Cost</b><br>$%{y:,.0f}<extra></extra>'
+    ),
+)
+
+fig_trend.update_layout(
+    title="Monthly Cost Trend & Breakdown",
     xaxis_title="Month",
-    legend_title_text="Category",
-    margin=dict(t=40, b=40),
-)
-
-st.plotly_chart(fig_bar, use_container_width=True)
-
-
-# --- Monthly Total Cost Line Chart ---
-fig_line = px.line(
-    monthly_df,
-    x="Month",
-    y=["Compute", "Storage", "Data Transfer"],
-    title="Monthly Total Cost Trend by Category",
-    labels={"value": "Cost ($)", "variable": "Category"},
-    hover_data={"value": ":,.2f"}
-)
-
-# Improve hover and legend
-fig_line.update_traces(mode='lines+markers', hovertemplate='%{x}: $%{y:,.2f}')
-fig_line.update_layout(
-    legend_title_text="Cost Category",
     yaxis_title="Cost ($)",
-    xaxis_title="Month"
+    hovermode='x unified',
+    height=500,
+    font=dict(family="Inter, sans-serif"),
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
 )
 
-st.plotly_chart(fig_line, use_container_width=True)
+# Optionally lock y-range so labels don't clip or overlap:
+fig_trend.update_yaxes(range=[0, max(total_costs) * 1.15])
 
 
-# --- Potential Savings Section ---
-st.header("💡 Potential Savings After Optimization")
+# Display charts side by side
+chart_col1, chart_col2 = st.columns(2)
+with chart_col1:
+    st.plotly_chart(fig_donut, use_container_width=True)
+with chart_col2:
+    st.plotly_chart(fig_trend, use_container_width=True)
 
-# Savings Metric
-st.metric(
-    "Annual Cost After Optimization",
-    f"${total_optimized_annual:,.2f}",
-    delta=f"-${total_savings:,.2f} ({savings_pct:.1f}%)"
-)
+# === OPTIMIZATION ANALYSIS ===
 
-# --- Optimization Summary ---
+st.markdown('<div class="section-header">⚡ Optimization Analysis</div>', unsafe_allow_html=True)
+
+# Optimization summary in professional cards
 optimizations = []
-
 if pause_hours_per_day > 0:
-    optimizations.append(f"Paused warehouses for **{pause_hours_per_day} hours/day** to reduce compute usage.")
-
-if reduce_vw_size != "Same":
-    optimizations.append(f"Reduced warehouse size to **{reduce_vw_size}** for lower compute costs.")
-
-if additional_discount > 0:
-    optimizations.append(f"Applied an **extra {additional_discount}% discount** due to optimized usage.")
-
+    optimizations.append(f"🔄 Auto-pause {pause_hours_per_day}h daily reduces compute by ~{pause_hours_per_day/hours_per_day*100:.0f}%")
+if reduce_vw_size != "No Change":
+    original_credits = size_credit_mapping[vw_size]
+    new_credits = size_credit_mapping[reduce_vw_size]
+    reduction = (1 - new_credits/original_credits) * 100
+    optimizations.append(f"📉 Warehouse downsizing saves {reduction:.0f}% on compute credits")
 if use_gen2:
-    optimizations.append("Enabled **Gen 2 Warehouse Pricing** with 30% credit efficiency and scaling discounts.")
+    optimizations.append(f"🚀 Gen 2 warehouses provide 30% better price-performance")
+if additional_discount > 0:
+    optimizations.append(f"🏷️ Usage optimization unlocks {additional_discount}% additional discount")
 
-# If no optimizations were applied
-if not optimizations:
-    optimizations.append("No additional optimizations applied.")
+if optimizations:
+    st.markdown('<div class="optimization-summary">', unsafe_allow_html=True)
+    for opt in optimizations:
+        st.markdown(f'<div class="optimization-item">{opt}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Display in a nice card-like container
-st.subheader("Summary of Optimizations Applied")
-st.markdown(
-    """
-    <style>
-        .optimization-box {
-            background-color: #f9fafb;
-            border: 1px solid #e5e7eb;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 10px;
-        }
-        .optimization-box ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-        .optimization-box li {
-            margin-bottom: 8px;
-            font-size: 16px;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
+# Before/After Comparison
+comparison_data = {
+    'Scenario': ['Current Configuration', 'Optimized Configuration'],
+    'Annual Cost': [total_annual_cost, total_optimized_annual],
+    'Monthly Average': [total_annual_cost/12, total_optimized_annual/12],
+    'Compute %': [sum(compute_costs)/total_annual_cost*100, sum(optimized_compute_costs)/total_optimized_annual*100],
+    'Storage %': [sum(storage_costs)/total_annual_cost*100, sum(optimized_storage_costs)/total_optimized_annual*100]
+}
+
+comparison_df = pd.DataFrame(comparison_data)
+
+# Enhanced comparison chart
+fig_comparison = px.bar(
+    comparison_df, x='Scenario', y='Annual Cost',
+    title='Cost Comparison: Current vs Optimized',
+    color='Scenario',
+    color_discrete_map={
+        'Current Configuration': '#ef4444',
+        'Optimized Configuration': '#10b981'
+    },
+    text='Annual Cost'
 )
 
-st.markdown("<div class='optimization-box'><ul>" + "".join([f"<li>{item}</li>" for item in optimizations]) + "</ul></div>", unsafe_allow_html=True)
-
-# --- Cost Savings by Category Chart with Totals ---
-savings_df = pd.DataFrame({
-    "Category": ["Compute", "Storage", "Data Transfer"],
-    "Current Cost": [sum(compute_costs), sum(storage_costs), sum(transfer_costs)],
-    "Optimized Cost": [sum(optimized_compute_costs), sum(optimized_storage_costs), sum(optimized_transfer_costs)]
-})
-
-# Create grouped bar chart
-fig_savings = px.bar(
-    savings_df,
-    x="Category",
-    y=["Current Cost", "Optimized Cost"],
-    title="Cost Savings by Category",
-    barmode="group",
-    labels={"value": "Cost ($)", "variable": "Status"},
-    hover_data={"value": ":,.2f"}
+fig_comparison.update_traces(
+    texttemplate='$%{text:,.0f}',
+    textposition='outside'
 )
 
-# Update hovertemplate
-fig_savings.update_traces(hovertemplate='%{x}: $%{value:,.2f}')
-
-for trace in fig_savings.data:
-    trace.text = [f"${v:,.0f}" for v in trace.y]
-    trace.textposition = "inside"
-
-
-
-# Improve layout
-fig_savings.update_layout(
-    yaxis_title="Cost ($)",
-    xaxis_title="Category",
-    legend_title_text="Status",
-    margin=dict(t=40, b=40),
+fig_comparison.update_layout(
+    yaxis_title="Annual Cost ($)",
+    showlegend=False,
+    height=400,
+    font=dict(family="Inter, sans-serif")
 )
 
-# Display the chart
-st.plotly_chart(fig_savings, use_container_width=True)
-
-
-optimized_monthly = (
-    np.array(optimized_compute_costs) + 
-    np.array(optimized_storage_costs) + 
-    np.array(optimized_transfer_costs)
-)
-
+# Monthly savings trend
 savings_trend_df = pd.DataFrame({
     "Month": months,
-    "Current Total": total_costs,
-    "Optimized Total": optimized_monthly
+    "Current": total_costs,
+    "Optimized": total_optimized_costs,
+    "Monthly Savings": total_costs - total_optimized_costs
 })
 
 fig_savings_trend = px.line(
-    savings_trend_df,
-    x="Month",
-    y=["Current Total", "Optimized Total"],
-    title="Monthly Cost Before and After Optimization",
-    labels={"value": "Cost ($)", "variable": "Status"}
-)
-fig_savings_trend.update_traces(mode='lines+markers')
-st.plotly_chart(fig_savings_trend, use_container_width=True)
-
-
-
-import plotly.graph_objects as go
-
-# --- Combined Stacked Bar + Line Chart ---
-fig_combined = go.Figure()
-
-# Add stacked bars for each cost category
-categories = ["Compute", "Storage", "Data Transfer"]
-colors = ["#4e79a7", "#f28e2b", "#e15759"]  # Optional custom colors
-
-for category, color in zip(categories, colors):
-    fig_combined.add_trace(go.Bar(
-        x=monthly_df["Month"],
-        y=monthly_df[category],
-        name=category,
-        marker_color=color,
-        hovertemplate=f"{category}: $%{{y:,.2f}}<extra></extra>"
-    ))
-
-# Add total cost line on top of stacked bars
-fig_combined.add_trace(go.Scatter(
-    x=monthly_df["Month"],
-    y=monthly_df["Total"],
-    name="Total Cost",
-    mode="lines+markers+text",
-    line=dict(color="black", width=2),
-    text=[f"${v:,.0f}" for v in monthly_df["Total"]],  # Show total cost labels
-    textposition="top center",
-    hovertemplate="Total: $%{y:,.2f}<extra></extra>"
-))
-
-# Update layout
-fig_combined.update_layout(
-    title="Monthly Cost Breakdown & Total Trend",
-    barmode="stack",
-    yaxis_title="Cost ($)",
-    xaxis_title="Month",
-    legend_title_text="Category",
-    hovermode="x unified",
-    margin=dict(t=40, b=40),
-    plot_bgcolor="white",
-    paper_bgcolor="white"
+    savings_trend_df, x="Month", y=["Current", "Optimized"],
+    title="Monthly Cost Trajectory",
+    color_discrete_map={"Current": "#ef4444", "Optimized": "#10b981"}
 )
 
-# Show chart
-st.plotly_chart(fig_combined, use_container_width=True)
+fig_savings_trend.update_traces(mode='lines+markers', line=dict(width=3))
+fig_savings_trend.update_layout(
+    yaxis_title="Monthly Cost ($)",
+    height=400,
+    font=dict(family="Inter, sans-serif")
+)
+
+# Display comparison charts
+comp_col1, comp_col2 = st.columns(2)
+with comp_col1:
+    st.plotly_chart(fig_comparison, use_container_width=True)
+with comp_col2:
+    st.plotly_chart(fig_savings_trend, use_container_width=True)
+
+# === ROI ANALYSIS ===
+st.markdown('<div class="section-header">💼 ROI & Business Impact</div>', unsafe_allow_html=True)
+
+roi_col1, roi_col2, roi_col3 = st.columns(3)
+
+with roi_col1:
+    months_to_roi = 1  # Immediate savings
+    st.metric(
+        "Time to ROI",
+        f"{months_to_roi} month{'s' if months_to_roi != 1 else ''}",
+        delta="Immediate impact"
+    )
+
+with roi_col2:
+    three_year_savings = total_savings * 3
+    st.metric(
+        "3-Year Savings Projection",
+        f"${three_year_savings:,.0f}",
+        delta=f"{savings_pct:.1f}% annually"
+    )
+
+with roi_col3:
+    cost_per_tb_processed = total_annual_cost / (storage_tb * 12) if storage_tb > 0 else 0
+    st.metric(
+        "Cost per TB (Annual)",
+        f"${cost_per_tb_processed:.2f}",
+        delta="Including all costs"
+    )
+
+# Summary Report Card
+st.markdown('<div class="section-header">📋 Executive Summary</div>', unsafe_allow_html=True)
+
+summary_metrics = {
+    'Current Annual Spend': f"${total_annual_cost:,.0f}",
+    'Optimized Annual Spend': f"${total_optimized_annual:,.0f}",
+    'Annual Savings': f"${total_savings:,.0f} ({savings_pct:.1f}%)",
+    'Monthly Savings': f"${total_savings/12:,.0f}",
+    'Compute Efficiency': f"{100-sum(optimized_compute_costs)/sum(compute_costs)*100:.1f}% improvement",
+    'Primary Optimization': 'Gen 2 Warehouses' if use_gen2 else 'Auto-pause & Right-sizing'
+}
+
+summary_df = pd.DataFrame(list(summary_metrics.items()), columns=['Metric', 'Value'])
+
+# Style the summary table
+st.dataframe(
+    summary_df,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "Metric": st.column_config.TextColumn("Key Metrics", width="medium"),
+        "Value": st.column_config.TextColumn("Values", width="medium")
+    }
+)
+
+# Action Items
+if savings_pct > 0:
+    st.success(f"🎯 **Recommendation**: Implement the optimization strategy to achieve ${total_savings:,.0f} in annual savings ({savings_pct:.1f}%)")
+    
+    if use_gen2:
+        st.info("💡 **Pro Tip**: Gen 2 warehouses provide the highest ROI with automatic scaling and 30% efficiency gains")
+    
+    if pause_hours_per_day > 0:
+        st.info(f"⏱️ **Quick Win**: Auto-pause configuration can be implemented immediately for {pause_hours_per_day}h daily savings")
+
+# Footer
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; color: #6b7280; font-size: 0.9rem; margin-top: 2rem;'>
+    <p>🔧 <strong>Snowflake Cost Intelligence Platform</strong> | Professional Cost Optimization & Analytics</p>
+    <p>Built with Streamlit & Plotly | Enterprise-Ready Cost Management Solution</p>
+</div>
+""", unsafe_allow_html=True)
