@@ -810,6 +810,6 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #6b7280; font-size: 0.9rem; margin-top: 2rem;'>
     <p>🔧 <strong>Snowflake Cost Estimator</strong> | Advanced Cost Estimation & Optimization Analytics</p>
-    <p>Made by <strong>Boolean Data Systems<sup>©</sup></strong> | All rights reserved. </p>
+    <p>Made by <strong>Boolean Data Systems<sup>©</sup></strong> | All Rights Reserved. </p>
 </div>
 """, unsafe_allow_html=True)
