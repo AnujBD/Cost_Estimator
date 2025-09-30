@@ -1,3 +1,5 @@
+
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -181,13 +183,12 @@ st.markdown("""
 
 
 # === SIDEBAR CONFIGURATION ===
+# === SIDEBAR CONFIGURATION ===
 with st.sidebar:
     st.image("assets/boolean.png", use_container_width=True, width=200)
     st.markdown("### 🎛️ Configuration Panel")
     
-    
     # Quick Setup Templates
-    #st.markdown("#### 📋 Quick Setup Templates")
     template = st.selectbox("Choose a template:", [
         "Custom Configuration",
         "Small Business",
@@ -197,63 +198,62 @@ with st.sidebar:
         "Analytics Heavy"
     ])
     
-    # Apply template defaults
-    if template == "Small Business":
-        default_vws, default_size, default_hours, default_days = 1, "Small", 8, 20
-        default_storage, default_transfer = 2.0, 0.5
-    elif template == "Mid-Market Enterprise":
-        default_vws, default_size, default_hours, default_days = 3, "Medium", 12, 25
-        default_storage, default_transfer = 10.0, 2.0
-    elif template == "Large Enterprise":
-        default_vws, default_size, default_hours, default_days = 8, "Large", 16, 30
-        default_storage, default_transfer = 50.0, 10.0
-    elif template == "Data Lake Workload":
-        default_vws, default_size, default_hours, default_days = 2, "X-Large", 20, 28
-        default_storage, default_transfer = 100.0, 5.0
-    elif template == "Analytics Heavy":
-        default_vws, default_size, default_hours, default_days = 5, "Large", 14, 26
-        default_storage, default_transfer = 25.0, 8.0
-    else:
-        default_vws, default_size, default_hours, default_days = 1, "X-Small", 12, 22
-        default_storage, default_transfer = 5.0, 2.0
+    # Default settings by template
+    template_defaults = {
+        "Small Business": {"vws": 1, "size": "Small", "hours": 8, "days": 20, "storage": 2.0, "transfer": 0.5, "credit": 1.5},
+        "Mid-Market Enterprise": {"vws": 3, "size": "Medium", "hours": 12, "days": 25, "storage": 10.0, "transfer": 2.0, "credit": 2.0},
+        "Large Enterprise": {"vws": 8, "size": "Large", "hours": 16, "days": 30, "storage": 50.0, "transfer": 10.0, "credit": 2.5},
+        "Data Lake Workload": {"vws": 2, "size": "X-Large", "hours": 20, "days": 28, "storage": 100.0, "transfer": 5.0, "credit": 3.0},
+        "Analytics Heavy": {"vws": 5, "size": "Large", "hours": 14, "days": 26, "storage": 25.0, "transfer": 8.0, "credit": 3.5},
+        "Custom Configuration": {"vws": 1, "size": "X-Small", "hours": 12, "days": 22, "storage": 5.0, "transfer": 2.0, "credit": 2.0}
+    }
+
+    defaults = template_defaults[template]
+
+    st.markdown("#### 💵 Cost per Credit")
+    
+    credit_cost = st.number_input(
+        "Cost per Credit ($)",
+        min_value=0.1,
+        max_value=20.0,
+        value=defaults["credit"],
+        step=1.0,
+        help="Adjust the cost per Snowflake credit according to your pricing tier"
+    )
     
     st.markdown("---")
     
     # Compute Configuration
     st.markdown("#### 💻 Compute Configuration")
-
-    # Gen 2 Warehouse with enhanced description
+    
     use_gen2 = st.checkbox(
         "🚀 Enable Gen 2 Warehouse Pricing",
         value=False,
         help="Gen 2 provides 30% better price-performance with automatic scaling"
     )
 
-    # Virtual Warehouses - now on top
     num_vws = st.number_input(
         "Virtual Warehouses",
         min_value=1, max_value=20,
-        value=default_vws,
+        value=defaults["vws"],
         help="Number of concurrent warehouses"
     )
 
-    # Warehouse Size - now below Virtual Warehouses
     vw_size = st.selectbox(
         "Warehouse Size",
         ["X-Small", "Small", "Medium", "Large", "X-Large"],
-        index=["X-Small", "Small", "Medium", "Large", "X-Large"].index(default_size)
+        index=["X-Small", "Small", "Medium", "Large", "X-Large"].index(defaults["size"])
     )
-
 
     hours_per_day = st.slider(
         "Average Hours per Day",
-        1, 24, default_hours,
+        1, 24, defaults["hours"],
         help="Daily warehouse runtime"
     )
     
     active_days_per_month = st.slider(
         "Active Days per Month",
-        1, 31, default_days,
+        1, 31, defaults["days"],
         help="Business days warehouse is active"
     )
     
@@ -271,7 +271,7 @@ with st.sidebar:
     storage_tb = st.number_input(
         "Average Storage (TB)",
         min_value=0.0, max_value=1000.0,
-        value=default_storage, step=0.5,
+        value=defaults["storage"], step=0.5,
         help="Total data storage requirements"
     )
     
@@ -284,7 +284,7 @@ with st.sidebar:
     data_transfer_tb = st.number_input(
         "Data Transfer Out (TB)",
         min_value=0.0, max_value=100.0,
-        value=default_transfer, step=0.1,
+        value=defaults["transfer"], step=0.1,
         help="Monthly outbound data transfer"
     )
     
@@ -295,6 +295,9 @@ with st.sidebar:
     )
     
     st.markdown("---")
+    
+    # Cost per Credit Configuration
+    
     
     # Pricing & Discounts
     st.markdown("#### 💰 Pricing & Discounts")
@@ -330,8 +333,9 @@ with st.sidebar:
     )
 
 
+
 # === CALCULATIONS ===
-CREDIT_COST = 2.0
+
 STORAGE_COST_PER_TB = 40
 DATA_TRANSFER_COST_PER_TB = 90
 size_credit_mapping = {"X-Small": 1, "Small": 2, "Medium": 4, "Large": 8, "X-Large": 16}
@@ -362,7 +366,7 @@ for month in range(12):
         base_credits *= 0.70  # 30% efficiency
         base_credits *= gen2_scaling_discount(num_vws)
     
-    monthly_compute = base_credits * CREDIT_COST * (1 + (month * compute_growth / 100))
+    monthly_compute = base_credits * credit_cost * (1 + (month * compute_growth / 100))
     compute_costs.append(monthly_compute)
     
     # Storage with compound growth
@@ -399,7 +403,7 @@ for month in range(12):
         if pause_hours_per_day > 0:
             base_credits_opt *= 0.90  # Additional pause efficiency
     
-    monthly_compute_opt = base_credits_opt * CREDIT_COST * (1 + (month * compute_growth / 100))
+    monthly_compute_opt = base_credits_opt * credit_cost * (1 + (month * compute_growth / 100))
     optimized_compute_costs.append(monthly_compute_opt)
     
     storage_current_opt *= (1 + storage_growth / 100)
@@ -460,33 +464,62 @@ with col4:
     """, unsafe_allow_html=True)
 
 # Configuration Summary
+# === CONFIGURATION SUMMARY ===
 st.markdown('<div class="section-header">🎯 Current Configuration</div>', unsafe_allow_html=True)
 
-config_col1, config_col2, config_col3 = st.columns(3)
+config_col1, config_col2, config_col3, config_col4 = st.columns(4)
+
+# Compute credits consumed
+annual_credits = num_vws * size_credit_mapping[vw_size] * hours_per_day * active_days_per_month * 12
+if use_gen2:
+    annual_credits *= 0.70
+    annual_credits *= gen2_scaling_discount(num_vws)
 
 with config_col1:
     st.markdown(f"""
     **Compute Setup:**
     - {num_vws} × {vw_size} Warehouses
     - {hours_per_day}h/day × {active_days_per_month} days/month
-    - {'✅ Gen 2 Enabled' if use_gen2 else '❌ Gen 1 Standard'}
+    - {'Gen 2 Warehouse Enabled' if use_gen2 else 'Gen 1 Warehouse'}
+    - Credits Consumed (Annual): {int(round(annual_credits)):,}
+    - Cost per Credit: ${credit_cost:.2f}
+    - **Annual Compute Cost:** ${int(round(sum(compute_costs))):,}
     """)
 
 with config_col2:
+    # Calculate average storage over the year
+    avg_storage_tb = sum([
+        storage_tb * ((1 + storage_growth / 100) ** month) for month in range(12)
+    ]) / 12
+
     st.markdown(f"""
     **Storage & Transfer:**
-    - {storage_tb:.1f} TB Storage
-    - {data_transfer_tb:.1f} TB/month Transfer
-    - {storage_growth}% Storage Growth
+    - **Storage Setup:**
+      - Starting Storage: {storage_tb:.1f} TB
+      - Growth: {storage_growth}% per month
+      - Avg Storage: {avg_storage_tb:.2f} TB
+      - Rate: ${STORAGE_COST_PER_TB}/TB/month
+      - **Annual Storage Cost:** ${int(round(sum(storage_costs))):,}
+
     """)
 
 with config_col3:
     st.markdown(f"""
+   - **Data Transfer Setup:**
+      - Monthly Transfer: {data_transfer_tb:.1f} TB
+      - Rate: ${DATA_TRANSFER_COST_PER_TB}/TB
+      - Monthly Cost: ${data_transfer_tb * DATA_TRANSFER_COST_PER_TB:,.0f}
+      - **Annual Transfer Cost:** ${int(round(sum(transfer_costs))):,}
+    """)
+
+
+with config_col4:
+    st.markdown(f"""
     **Discounts Applied:**
     - {discount_pct}% Base Discount
     - {additional_discount}% Optimization Discount
-    - Template: {template}
     """)
+
 
 # === ENHANCED VISUALIZATIONS ===
 
